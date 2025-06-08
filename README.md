@@ -148,11 +148,11 @@ su funcionamiento de forma simplificadad es
 # Estructura de un Network ID de ZeroTier
 
 ``` mermaid
-  graph TD;
-      A-->B;
-      A-->C;
-      B-->D;
-      C-->D;
+graph TD;
+    A[8056c2e21c123456] --> B[Primeros 10 caracteres];
+    A --> C[Últimos 6 caracteres];
+    B --> D["Dirección ZeroTier del controlador"];
+    C --> E["Número de red en el controlador"];
  ```
 
 En detalle
