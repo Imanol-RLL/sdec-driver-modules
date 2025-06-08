@@ -145,11 +145,15 @@ su funcionamiento de forma simplificadad es
 ![Overlay Network](https://github.com/Imanol-RLL/sdec-driver-modules/blob/main/res/Pasted%20image%2020250606221251.png)
 
 
-Network ID: 8056c2e21c123456
-            |         |
-            |         Network number on controller
-            |
-            ZeroTier address of controller
+# Estructura de un Network ID de ZeroTier
+
+``` mermaid
+  graph TD;
+      A-->B;
+      A-->C;
+      B-->D;
+      C-->D;
+ ```
 
 En detalle
 
