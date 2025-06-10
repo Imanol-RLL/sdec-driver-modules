@@ -5,30 +5,21 @@ pi = pigpio.pi()
 if not pi.connected:
     exit("Could not connect to pigpiod")
 
-# Pines GPIO
-gpio_pin_a = 18  # Software PWM
-gpio_pin_b = 13  # Software PWM
+gpio_pin = 18  # or any GPIO
 
-# Configuración
-frequency_a = 2    # Hz
-duty_cycle_a = 128  # 50% of 255
+frequency = 0.5  # Hz (0.5 Hz = 2 seconds per cycle)
+period = 1 / frequency  # full period
+half_period = period / 2  # high and low duration
 
-frequency_b = 4    # Hz
-duty_cycle_b = int(255 * 0.75)  # 75% of 255
+print(f"Generating {frequency} Hz square wave on GPIO {gpio_pin}")
 
-# Establecer frecuencia y duty cycle
-pi.set_PWM_frequency(gpio_pin_a, frequency_a)
-pi.set_PWM_dutycycle(gpio_pin_a, duty_cycle_a)
-print(f"Generating {frequency_a}Hz (50%) on GPIO {gpio_pin_a} using software PWM")
-
-pi.set_PWM_frequency(gpio_pin_b, frequency_b)
-pi.set_PWM_dutycycle(gpio_pin_b, duty_cycle_b)
-print(f"Generating {frequency_b}Hz (75%) on GPIO {gpio_pin_b} using software PWM")
-
-# Ejecutar por 10 segundos
-time.sleep(10)
-
-# Detener PWM
-pi.set_PWM_dutycycle(gpio_pin_a, 0)
-pi.set_PWM_dutycycle(gpio_pin_b, 0)
-pi.stop()
+try:
+    while True:
+        pi.write(gpio_pin, 1)
+        time.sleep(half_period)
+        pi.write(gpio_pin, 0)
+        time.sleep(half_period)
+except KeyboardInterrupt:
+    print("Stopped by user")
+    pi.write(gpio_pin, 0)
+    pi.stop()
