@@ -5,9 +5,9 @@ pi = pigpio.pi()
 if not pi.connected:
     exit("Could not connect to pigpiod")
 
-gpio_pin = 18  # or any GPIO
+gpio_pin = 13  # or any GPIO
 
-frequency = 0.5  # Hz (0.5 Hz = 2 seconds per cycle)
+frequency = 0.2  # Hz (0.5 Hz = 2 seconds per cycle)
 period = 1 / frequency  # full period
 half_period = period / 2  # high and low duration
 
