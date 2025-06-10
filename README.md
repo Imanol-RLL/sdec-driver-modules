@@ -1,10 +1,10 @@
-## Drivers de Kernel
+# Drivers de Kernel
 Los drivers de caracteres
 es de las formas mas simples de comunicarse al kernel de linux, se trabaja en módulos que pueden agregarse y desacoplarse de forma controlada. dando independencia al sistema de sus drivers en caso de falla.
 Estos módulos actúan como intermediarios entre el espacio de usuario y el hardware o servicios del sistema, ofreciendo una abstracción que simplifica enormemente el desarrollo y mantenimiento de controladores.
-![Arquitectura de capas de drivers](https://github.com/Imanol-RLL/sdec-driver-modules/blob/main/res/Pasted%20image%2020250606223749.png)
+![Arquitectura de capas de drivers](res/capa_drivers.png)
 
-Implementacion:
+## Implementacion:
 
 en C99 la implementacion mas simple de operaciones de archivos es 
 
@@ -16,7 +16,7 @@ en C99 la implementacion mas simple de operaciones de archivos es
        .release = device_release
     };
 ```
-** Conceptos:
+**Conceptos**:
 - **Major number**: Número principal que identifica el controlador de dispositivo
     
 - **Minor number**: Número secundario que identifica dispositivos específicos manejados por el mismo controlador
@@ -136,16 +136,20 @@ static ssize_t mychardev_write(struct file *file, const char __user *buf, size_t
     return 0;
 }
 ```
-
-## Conexión remota del dispositivo
-Para este trabajo se implemento una overlay network de codigo libre llamada ZeroTier, de forma que cada integrante del equipo pudiera acceder a la raspberry pi.
-
-su funcionamiento de forma simplificadad es
-
-![Overlay Network](https://github.com/Imanol-RLL/sdec-driver-modules/blob/main/res/Pasted%20image%2020250606221251.png)
+La implementación realizada en el trabajo para el GPIO parte de las estructuras anteriormente expuestas.
 
 
-# Estructura de un Network ID de ZeroTier
+# Conexión remota del dispositivo
+Para este trabajo se implemento una overlay network de código libre llamada ZeroTier, de forma que cada integrante del equipo pudiera acceder a la raspberry pi.
+
+Su funcionamiento de forma simplificada es el esquematizado en la siguiente imagen.
+
+![Overlay Network](res/Pasted%20image%2020250606221251.png)
+
+
+Para evitar el problema de abrir puertos en una NAT restringida, ZeroTier utiliza una técnica llamada *UDP Hole Punch*.
+
+## Estructura de un Network ID de ZeroTier
 
 ``` mermaid
 graph TD;
@@ -155,7 +159,7 @@ graph TD;
     C --> E["Número de red en el controlador"];
  ```
 
-En detalle
+En detalle,
 
  **ZeroTier crea una VPN mesh**:
     
@@ -163,19 +167,101 @@ En detalle
         
     - No requiere configuración de puertos en el router (funciona detrás de NAT).
         
- **Asignación de IPs privadas**:
+ **Asigna de IPs privadas**:
     
     - ZeroTier asigna direcciones IP únicas en la red virtual (`10.147.20.0/24`).
         
- **Seguridad**:
+ **Cifra las conexiones**:
     
     -  **Cifrado AES-256**: Todos los datos viajan encriptados.
         
     - **Autenticación centralizada**: Solo dispositivos autorizados en ZeroTier Central pueden unirse.
--
+
+![alt text](/res/zerotier.png)
 
 
-bibliografia:
+Se puede leer mas en:
 
 https://harivemula.com/2021/09/18/routing-all-traffic-through-home-with-zerotier-on-travel/
 https://olegkutkov.me/2018/03/14/simple-linux-character-device-driver/
+
+## SSH
+
+A partir de la conexión de los dispositivos con Zero Tier, cada integrante de la red puede ver la Raspberry como si se tratara de un dispositivo en su propia red local, y conectarse con el mediante SSH usando
+
+```bash
+ssh raspberry@192.168.x.x
+```
+
+La IP de la Raspberry se puede encontrar utilizando la herramienta ```nmap```
+
+```bash
+nmap 192.168.x.x/24
+```
+Segun la red local de cada integrante del grupo.
+
+# Driver GPIO
+
+El driver GPIO se implementó junto con la API GPIO del kernel de Linux. A partir de la versión 6.2 del kernel Linux, se introdujeron cambios significativos en la forma en que se gestionan los pines GPIO en sistemas como la Raspberry Pi. Uno de los efectos más notables es que los números de los GPIO expuestos por el sistema pueden aparecer con valores altos, por ejemplo, superiores a 500. Este cambio se debe a la adopción del modelo de descriptores GPIO (GPIO descriptor framework) y a una asignación dinámica de los rangos de pines para cada controlador.
+
+En versiones anteriores del kernel, los GPIO se numeraban de forma secuencial desde 0, lo que permitía acceder a ellos de manera sencilla usando su número absoluto.
+
+Debido a esta nueva estructura, se deben utilizar herramientas como ```gpiodetect``` que permite acceder a los pines por nombre o por índice relativo dentro de un controlador específico.
+
+```bash
+gpiodetect        # Muestra los chips GPIO disponibles
+gpioinfo          # Lista las líneas GPIO y sus nombres
+```
+
+![alt text](res/gpio.png)
+
+### Build
+
+El driver se puede compilar usando el comando ```make```. Una vez compilado lo podemos cargar con ```sudo insmod driver_gpio.ko```.
+
+![driver_cargado](res/driver_cargado.png)
+
+ Es posible utilizar comandos estándar como echo y cat, los cuales permiten enviar o recibir información según las operaciones de escritura y lectura implementadas por el driver.
+
+Cuando se ejecuta un comando del tipo:
+
+```bash
+echo "1" > /dev/gpio_driver
+
+```
+
+el sistema realiza una operación de escritura sobre el archivo de dispositivo. Internamente, esto invoca la función write() definida en el driver correspondiente, pasando el contenido especificado (en este caso, "1") como un buffer de datos.
+
+Por otro lado, al ejecutar un comando como:
+
+```bash
+cat /dev/gpio_driver
+```
+
+se realiza una lectura desde el dispositivo, lo que implica la invocación del método read() del driver. Este método es responsable de devolver una cadena de texto o datos binarios que representen el estado actual del dispositivo, en este caso el valor de una entrada en GPIO.
+
+## Utilidades con Python
+
+### Instalación de dependencias
+
+Las dependencias de los scripts se instalan con 
+
+```bash
+pip install matplotlib pigpio
+```
+
+Se recomienda utilizar un entorno virtual.
+
+### Uso
+Para realizar de interfaz con el driver que se encuentra en ```/dev/control_gpio``` usamos
+
+```sudo chmod a+rw /dev/control_gpio```
+
+Existen varios scripts de Python que desarrollamos para el monitoreo del TP en la carpeta ```utils```:
+- ```hardware_pwm.py```: es una prueba de concepto de control de PWM por hardware de la Raspberry Pi. Solo funciona para frecuencias mayor a 1, por lo que se obvió su uso
+- ```software_pwm.py```: una implementación de PWM por software. Si admite frecuencias menores a 1.
+- ```potter_driver.py```: un pequeño programa que grafica, por medio del driver ```control_gpio```, la entrada a los GPIO. Posee también un selector de entrada.
+
+![alt text](res/oscilo.jpg)
+
+![alt text](res/sistema.png)
