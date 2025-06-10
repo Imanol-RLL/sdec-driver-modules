@@ -60,7 +60,7 @@ static ssize_t dispositivo_leer(struct file* f, char* buffer, size_t longitud, l
 
     printk(KERN_INFO "Lectura del dispositivo solicitada\n");
 
-    longitud_mensaje = snprintf(mensaje, sizeof(mensaje), "Señal actual: %d\n", estado_gpio);
+    longitud_mensaje = snprintf(mensaje, sizeof(mensaje), "Valor actual: %d\n", estado_gpio);
 
     if (*offset >= longitud_mensaje)
         return 0;
@@ -96,7 +96,7 @@ static ssize_t dispositivo_escribir(struct file* f, const char* buffer, size_t l
     entrada[longitud] = '\0';
 
     if (kstrtoint(entrada, 10, &senal_seleccionada) != 0) {
-        printk(KERN_ERR "Error: entrada inválida para selección de señal: %s\n", entrada);
+        printk(KERN_ERR "Error: entrada inválida para selección de valor: %s\n", entrada);
         return -EFAULT;
     }
 
