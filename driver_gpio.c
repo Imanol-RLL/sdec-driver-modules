@@ -9,8 +9,8 @@
 
 #define NOMBRE_DISPOSITIVO "control_gpio"
 #define CLASE_DISPOSITIVO "clase_gpio"
-#define PIN_GPIO_A 532
-#define PIN_GPIO_B 533
+#define PIN_GPIO_A 532 // ESTO VALE A PARTIR DEL KERNEL 6.2
+#define PIN_GPIO_B 533 // ESTO VALE A PARTIR DEL KERNEL 6.2
 #define INTERVALO_TEMPORIZADOR HZ  // 1 segundo
 
 static int numero_mayor;
