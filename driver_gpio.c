@@ -7,102 +7,101 @@
 #include <linux/timer.h>
 #include <linux/device.h>
 
-#define DEVICE_NAME "control_gpio"
-#define CLASS_NAME "clase_gpio"
-#define GPIO_A 532
-#define GPIO_B 533
+#define NOMBRE_DISPOSITIVO "control_gpio"
+#define CLASE_DISPOSITIVO "clase_gpio"
+#define PIN_GPIO_A 532
+#define PIN_GPIO_B 533
+#define INTERVALO_TEMPORIZADOR HZ  // 1 segundo
 
-static struct class* gpio_class = NULL;
+static int numero_mayor;
+static struct class* clase = NULL;
+static struct timer_list temporizador;
 
-static int selected_signal = 1; // 1 para GPIO_A, 2 para GPIO_B
-static int current_gpio_value = 0;
+static int senal_seleccionada = 1; // 1 para PIN_GPIO_A, 2 para PIN_GPIO_B
+static int estado_gpio = 0;
 
 /**
- * read_gpio_timer - Función llamada periódicamente para leer el valor GPIO.
+ * temporizador_callback - Función de temporizador que lee el valor GPIO.
  */
-static void read_gpio_timer(struct timer_list* t) {
-    printk(KERN_INFO "Temporizador: leyendo el valor del pin GPIO...\n");
+static void temporizador_callback(struct timer_list* t) {
+    printk(KERN_INFO "Temporizador: ejecutando lectura de GPIO\n");
 
-    if (selected_signal == 1)
-        current_gpio_value = gpio_get_value(GPIO_A);
+    if (senal_seleccionada == 1)
+        estado_gpio = gpio_get_value(PIN_GPIO_A);
     else
-        current_gpio_value = gpio_get_value(GPIO_B);
+        estado_gpio = gpio_get_value(PIN_GPIO_B);
 
-    printk(KERN_INFO "Lectura GPIO %d -> valor: %d\n", selected_signal, current_gpio_value);
-
-    mod_timer(&gpio_timer, jiffies + TIMER_INTERVAL);
+    printk(KERN_INFO "Valor actual del GPIO (%d): %d\n", senal_seleccionada, estado_gpio);
+    mod_timer(&temporizador, jiffies + INTERVALO_TEMPORIZADOR);
 }
 
-
 /**
- * dev_open - Se invoca al abrir el dispositivo.
+ * dispositivo_abierto - Función cuando se abre el dispositivo.
  */
-static int dev_open(struct inode *inodep, struct file *filep) {
+static int dispositivo_abierto(struct inode *i, struct file *f) {
     printk(KERN_INFO "Dispositivo GPIO: abierto correctamente\n");
     return 0;
 }
 
 /**
- * dev_close - Se invoca al cerrar el dispositivo.
+ * dispositivo_cerrado - Función cuando se cierra el dispositivo.
  */
-static int dev_close(struct inode *inodep, struct file *filep) {
+static int dispositivo_cerrado(struct inode *i, struct file *f) {
     printk(KERN_INFO "Dispositivo GPIO: cerrado correctamente\n");
     return 0;
 }
 
 /**
- * dev_read - Permite al usuario leer el estado actual del GPIO seleccionado.
+ * dispositivo_leer - Función de lectura del dispositivo.
  */
-static ssize_t dev_read(struct file* filep, char* buffer, size_t len, loff_t* offset) {
-    char msg[128];
-    int msg_len;
+static ssize_t dispositivo_leer(struct file* f, char* buffer, size_t longitud, loff_t* offset) {
+    char mensaje[128];
+    int longitud_mensaje;
 
-    printk(KERN_INFO "Lectura solicitada desde espacio de usuario\n");
+    printk(KERN_INFO "Lectura del dispositivo solicitada\n");
 
-    msg_len = snprintf(msg, sizeof(msg), "Señal activa: %d\n", current_gpio_value);
+    longitud_mensaje = snprintf(mensaje, sizeof(mensaje), "Señal actual: %d\n", estado_gpio);
 
-    if (*offset >= msg_len)
+    if (*offset >= longitud_mensaje)
         return 0;
 
-    if (len > msg_len - *offset)
-        len = msg_len - *offset;
+    if (longitud > longitud_mensaje - *offset)
+        longitud = longitud_mensaje - *offset;
 
-    if (copy_to_user(buffer, msg + *offset, len) != 0) {
-        printk(KERN_ERR "Error: no se pudo copiar al espacio de usuario\n");
+    if (copy_to_user(buffer, mensaje + *offset, longitud) != 0) {
+        printk(KERN_ERR "Error al copiar datos al espacio de usuario\n");
         return -EFAULT;
     }
 
-    *offset += len;
-    return len;
+    *offset += longitud;
+    return longitud;
 }
 
 /**
- * dev_write - Permite al usuario escribir 1 o 2 para seleccionar el pin GPIO.
+ * dispositivo_escribir - Permite al usuario seleccionar el GPIO a observar.
  */
-static ssize_t dev_write(struct file* filep, const char* buffer, size_t len, loff_t* offset) {
-    char input[64];
+static ssize_t dispositivo_escribir(struct file* f, const char* buffer, size_t longitud, loff_t* offset) {
+    char entrada[64];
 
-    printk(KERN_INFO "Escritura recibida desde espacio de usuario\n");
+    printk(KERN_INFO "Escritura recibida por el dispositivo\n");
 
-    if (len > sizeof(input) - 1)
-        len = sizeof(input) - 1;
+    if (longitud > sizeof(entrada) - 1)
+        longitud = sizeof(entrada) - 1;
 
-    if (copy_from_user(input, buffer, len) != 0) {
-        printk(KERN_ERR "Error: no se pudo copiar desde el espacio de usuario\n");
+    if (copy_from_user(entrada, buffer, longitud) != 0) {
+        printk(KERN_ERR "Error al copiar desde el espacio de usuario\n");
         return -EFAULT;
     }
 
-    input[len] = '\0';
+    entrada[longitud] = '\0';
 
-    if (kstrtoint(input, 10, &selected_signal) != 0) {
-        printk(KERN_ERR "Entrada inválida para selección de señal: %s\n", input);
+    if (kstrtoint(entrada, 10, &senal_seleccionada) != 0) {
+        printk(KERN_ERR "Error: entrada inválida para selección de señal: %s\n", entrada);
         return -EFAULT;
     }
 
-    printk(KERN_INFO "Señal seleccionada: GPIO %d\n", selected_signal);
-    return len;
+    return longitud;
 }
-
 
 static struct file_operations operaciones_fichero = {
     .owner = THIS_MODULE,
